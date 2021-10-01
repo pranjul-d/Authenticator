@@ -2,11 +2,13 @@ package com.softradix.authenticatordemo.activities
 
 import android.Manifest
 import android.animation.ObjectAnimator
+import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -49,6 +51,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tokenDatabase: TokenDatabase
     private lateinit var sharedPrefs: SharedPreferences
     private lateinit var binding: ActivityMainBinding
+//    private const val REQUEST_CODE_SCANNER = 1
 
     private val tokens = mutableListOf<Token>()
     private val otpUpdate = object : Runnable {
@@ -145,6 +148,11 @@ class MainActivity : AppCompatActivity() {
                                         ScannerActivity::class.java
                                     )
                                 )
+
+//                                startActivityForResult(
+//                                    Intent(this@MainActivity, ScannerActivity::class.java),
+//                                    1
+//                                )
                             }
 
                             override fun onPermissionDenied(p0: PermissionDeniedResponse?) {
@@ -165,8 +173,33 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-    }
+        CoroutineScope(Dispatchers.IO).launch {
+            tokens.addAll(tokenDatabase.tokenDao().getAll())
+            binding.pbLoading.visibility = View.GONE
 
+            adapter.notifyDataSetChanged()
+        }
+
+    }
+//    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+//        super.onActivityResult(requestCode, resultCode, data)
+//
+//        when (requestCode) {
+//            1 -> {
+//                if (resultCode == Activity.RESULT_OK && data != null) {
+//                    try {
+//                        addToken(Token.fromUri(Uri.parse(data.getStringExtra(ScannerActivity.EXTRA_STRING_URL))))
+//                    } catch (e: Token.Companion.InvalidUriException) {
+//                        MaterialAlertDialogBuilder(this)
+//                            .setTitle("Invalid code")
+//                            .setMessage("The code you scanned is invalid.\nError message: ${e.message}")
+//                            .setPositiveButton("OK", null)
+//                            .show()
+//                    }
+//                }
+//            }
+//        }
+//    }
     override fun onPause() {
         super.onPause()
         listRefreshHandler.removeCallbacks(otpUpdate)
@@ -199,7 +232,19 @@ class MainActivity : AppCompatActivity() {
     }
 
     var activityResultLauncher =
-        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result->
+            if (result.resultCode == Activity.RESULT_OK && result.data != null) {
+                try {
+                    addToken(Token.fromUri(Uri.parse(result.data?.getStringExtra(ScannerActivity.EXTRA_STRING_URL))))
+                } catch (e: Token.Companion.InvalidUriException) {
+                    MaterialAlertDialogBuilder(this)
+                        .setTitle("Invalid code")
+                        .setMessage("The code you scanned is invalid.\nError message: ${e.message}")
+                        .setPositiveButton("OK", null)
+                        .show()
+                }
+            }
+
 
         }
 
